@@ -1,0 +1,38 @@
+{
+  "name": "info-literacy-quickref",
+  "version": "1.0.0",
+  "description": "信息素养速查库 —— 为大学生「AI+信息素养」大赛而做的检索作战包。26 个已逆向打通的 CLI，覆盖知网、万方、维普、国家图书馆、PubMed/NCBI、国家标准、国家统计局等 40+ 站点，一条命令直出答案字段。",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "playwright-core": ">=1.40.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright-core": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "doctor": "node doctor.mjs",
+    "doctor:net": "node doctor.mjs --net",
+    "selftest": "node scripts/_selftest.mjs"
+  },
+  "keywords": [
+    "information-literacy",
+    "信息素养",
+    "信息检索",
+    "知网",
+    "cnki",
+    "万方",
+    "维普",
+    "cnki-scraper",
+    "claude-skill",
+    "agent-skill",
+    "cli"
+  ],
+  "author": "xianwins4ever-ux",
+  "license": "MIT"
+}
