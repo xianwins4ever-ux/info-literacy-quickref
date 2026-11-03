@@ -35,18 +35,16 @@
 
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { playwrightCandidates, isFsPath, resolveProfile } from './_env.mjs';
 
 const require = createRequire(import.meta.url);
 
 // playwright-core 藏在 @playwright/mcp 里（本机浏览器只剩系统 Edge）
-const CANDIDATES = [
-  'C:/Users/xianw/AppData/Roaming/npm/node_modules/@playwright/mcp/node_modules/playwright-core/index.js',
-  'playwright-core',
-];
+const CANDIDATES = [...playwrightCandidates(), 'playwright-core'];
 let chromium = null;
 for (const c of CANDIDATES) {
   try {
-    const mod = c.startsWith('C:')
+    const mod = isFsPath(c)
       ? await import(pathToFileURL(c).href)
       : await import(c);
     chromium = (mod.default ?? mod).chromium;
@@ -233,7 +231,7 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
 // 用独立 profile 存瑞数 cookie。
 // ⚠️ 一旦该 profile 被瑞数标记（表现为 gen 接口恒返回 400、window.$_ts 为 undefined），
 //    该 profile 不会自愈 —— 删掉目录换一个新的即可（务必从首次访问起就带 stealth 参数）。
-const PROFILE = process.env.ZXGK_PROFILE || 'C:/Users/xianw/.dsh/zxgk-profile';
+const PROFILE = resolveProfile('zxgk-profile', 'ZXGK_PROFILE');
 
 // 一次完整尝试：起浏览器 → 加载页面 → 解滑块 → 查询
 async function attempt(profileDir) {

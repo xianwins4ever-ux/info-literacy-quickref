@@ -40,15 +40,13 @@
 // ============================================================
 
 import { pathToFileURL } from 'node:url';
+import { playwrightCandidates, isFsPath, resolveProfile } from './_env.mjs';
 
-const CANDIDATES = [
-  'C:/Users/xianw/AppData/Roaming/npm/node_modules/@playwright/mcp/node_modules/playwright-core/index.js',
-  'playwright-core',
-];
+const CANDIDATES = [...playwrightCandidates(), 'playwright-core'];
 let chromium = null;
 for (const c of CANDIDATES) {
   try {
-    const m = c.startsWith('C:') ? await import(pathToFileURL(c).href) : await import(c);
+    const m = isFsPath(c) ? await import(pathToFileURL(c).href) : await import(c);
     chromium = (m.default ?? m).chromium;
     if (chromium) break;
   } catch { /* 下一个 */ }
@@ -62,7 +60,7 @@ class GracefulExit extends Error {
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0';
-const PROFILE = process.env.VP_PROFILE || 'C:/Users/xianw/.dsh/vp-profile';
+const PROFILE = resolveProfile('vp-profile', 'VP_PROFILE');
 const PAGE = 'https://qikan.cqvip.com/Qikan/Search/Advance';
 
 const argv = process.argv.slice(2);

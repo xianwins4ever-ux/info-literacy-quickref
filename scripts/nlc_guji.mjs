@@ -45,15 +45,13 @@
 // ============================================================
 
 import { pathToFileURL } from 'node:url';
+import { playwrightCandidates, isFsPath, resolveProfile } from './_env.mjs';
 
-const CAND = [
-  'C:/Users/xianw/AppData/Roaming/npm/node_modules/@playwright/mcp/node_modules/playwright-core/index.js',
-  'playwright-core',
-];
+const CAND = [...playwrightCandidates(), 'playwright-core'];
 let chromium = null;
 for (const c of CAND) {
   try {
-    const m = c.startsWith('http') ? await import(c) : await import(pathToFileURL(c).href);
+    const m = isFsPath(c) ? await import(pathToFileURL(c).href) : await import(c);
     chromium = (m.default ?? m).chromium;
     if (chromium) break;
   } catch { /* next */ }
@@ -62,7 +60,7 @@ for (const c of CAND) {
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0';
 const ORIGIN = 'http://read.nlc.cn';
-const PROFILE = 'C:/Users/xianw/.dsh/nlc-profile';
+const PROFILE = resolveProfile('nlc-profile', 'NLC_PROFILE');
 
 const argv = process.argv.slice(2);
 const has = (f) => argv.includes('--' + f);

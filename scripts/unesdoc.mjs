@@ -66,21 +66,19 @@ import { pathToFileURL } from 'node:url';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { playwrightCandidates, isFsPath, resolveProfile } from './_env.mjs';
 
-const CANDIDATES = [
-  'C:/Users/xianw/AppData/Roaming/npm/node_modules/@playwright/mcp/node_modules/playwright-core/index.js',
-  'playwright-core',
-];
+const CANDIDATES = [...playwrightCandidates(), 'playwright-core'];
 let chromium = null;
 for (const c of CANDIDATES) {
   try {
-    const m = c.startsWith('C:') ? await import(pathToFileURL(c).href) : await import(c);
+    const m = isFsPath(c) ? await import(pathToFileURL(c).href) : await import(c);
     chromium = (m.default ?? m).chromium;
     if (chromium) break;
   } catch { /* 下一个 */ }
 }
 
-const PROFILE = process.env.UNESDOC_PROFILE || 'C:/Users/xianw/.dsh/unesdoc-profile';
+const PROFILE = resolveProfile('unesdoc-profile', 'UNESDOC_PROFILE');
 const OUTDIR = process.env.UNESDOC_OUT || path.join(process.cwd(), '_unesdoc_cache');
 
 class Exit extends Error { constructor(c) { super('exit'); this.code = c; } }

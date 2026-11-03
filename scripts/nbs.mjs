@@ -40,16 +40,14 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { pathToFileURL } from 'node:url';
+import { playwrightCandidates, isFsPath, resolveProfile } from './_env.mjs';
 
 // ---- 加载 playwright-core（本机浏览器只剩系统 Edge）----
-const CANDIDATES = [
-  'C:/Users/xianw/AppData/Roaming/npm/node_modules/@playwright/mcp/node_modules/playwright-core/index.js',
-  'playwright-core',
-];
+const CANDIDATES = [...playwrightCandidates(), 'playwright-core'];
 let chromium = null;
 for (const c of CANDIDATES) {
   try {
-    const m = c.startsWith('C:') ? await import(pathToFileURL(c).href) : await import(c);
+    const m = isFsPath(c) ? await import(pathToFileURL(c).href) : await import(c);
     chromium = (m.default ?? m).chromium;
     if (chromium) break;
   } catch { /* 下一个 */ }
@@ -59,7 +57,7 @@ if (!chromium) { console.error('找不到 playwright-core'); process.exit(1); }
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0';
 const PAGE = 'https://data.stats.gov.cn/dg/website/page.html#/pc/national/home';
-const PROFILE = process.env.NBS_PROFILE || 'C:/Users/xianw/.dsh/nbs-profile';
+const PROFILE = resolveProfile('nbs-profile', 'NBS_PROFILE');
 const CACHE = join(homedir(), '.dsh', 'nbs-index.json');
 const ROOT_ID = '884c062607104a91967b22742537f44f';
 

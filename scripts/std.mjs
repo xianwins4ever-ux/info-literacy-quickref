@@ -32,6 +32,8 @@
 //      返回 JSON（含 hcno），再用 hcno 去 openstd 取详情。
 // ============================================================
 
+import { playwrightCandidates, isFsPath, resolveProfile } from './_env.mjs';
+
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0';
 
@@ -58,14 +60,11 @@ const TRIES = Number(process.env.STD_TRIES || 2);
 let _bctx = null;
 async function browserGet(url, timeoutMs = 20000) {
   const { pathToFileURL } = await import('node:url');
-  const CAND = [
-    'C:/Users/xianw/AppData/Roaming/npm/node_modules/@playwright/mcp/node_modules/playwright-core/index.js',
-    'playwright-core',
-  ];
+  const CAND = [...playwrightCandidates(), 'playwright-core'];
   let chromium = null;
   for (const c of CAND) {
     try {
-      const m = c.startsWith('C:') ? await import(pathToFileURL(c).href) : await import(c);
+      const m = isFsPath(c) ? await import(pathToFileURL(c).href) : await import(c);
       chromium = (m.default ?? m).chromium;
       if (chromium) break;
     } catch { /* 下一个 */ }
@@ -73,7 +72,7 @@ async function browserGet(url, timeoutMs = 20000) {
   if (!chromium) throw new Error('找不到 playwright-core，无法回退浏览器');
   if (!_bctx) {
     const ctx = await chromium.launchPersistentContext(
-      process.env.STD_PROFILE || 'C:/Users/xianw/.dsh/std-profile',
+      resolveProfile('std-profile', 'STD_PROFILE'),
       {
         channel: 'msedge', headless: true, locale: 'zh-CN', userAgent: UA,
         // ⚠️ 只加 stealth 参数，**不要**用 addInitScript 改 navigator.webdriver

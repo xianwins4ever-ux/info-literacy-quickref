@@ -22,6 +22,7 @@ import { existsSync, statSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
+import { playwrightCandidates, resolveProfile } from './scripts/_env.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCRIPTS = join(HERE, 'scripts');
@@ -47,12 +48,9 @@ else if (major >= 18 && major <= 26) OK(`Node ${nodeVer}`);
 else W(`Node ${nodeVer} 未实测过（实测通过的是 24.x）`);
 
 // ---------- 2. playwright-core（11 个浏览器类脚本的硬依赖） ----------
-// ⚠️ 这些脚本的 CANDIDATES 数组第一项是绝对路径，第二项是裸包名 'playwright-core'。
-//    只要**任意一个**能找到，浏览器类脚本就能跑。
-const PW_CANDIDATES = [
-  'C:/Users/xianw/AppData/Roaming/npm/node_modules/@playwright/mcp/node_modules/playwright-core/index.js',
-  'C:/Users/xianw/AppData/Roaming/npm/node_modules/playwright-core/index.js',
-];
+// 每个脚本的 CANDIDATES 都是 [...playwrightCandidates(), 'playwright-core']，
+// 即「自动探测到的绝对路径」+「裸包名」两种方式，任意一种能找到就能跑。
+const PW_CANDIDATES = playwrightCandidates();
 let pwFound = null;
 for (const p of PW_CANDIDATES) if (existsSync(p)) { pwFound = p; break; }
 if (!pwFound) {
@@ -68,29 +66,40 @@ if (pwFound) OK(`playwright-core: ${pwFound.length > 70 ? '...' + pwFound.slice(
 else F(`找不到 playwright-core —— 浏览器类脚本（cnki/wf/vp/nbs/nmpa/zxgk/bdxs/lawyer/unesdoc/nlc_guji/std）全部不可用。
      修复: npm i -g @playwright/mcp   （或 npm i -g playwright-core）`);
 
-// ---------- 3. 浏览器（本机只有系统 Edge） ----------
-const EDGE = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
-report.info.edge = existsSync(EDGE);
-if (existsSync(EDGE)) OK('系统 Edge 存在（脚本用 channel: "msedge"）');
-else W('未找到系统 Edge（预期路径 ' + EDGE + '），浏览器类脚本可能失败');
+// ---------- 3. 浏览器（脚本用 channel: "msedge"，即系统装的正版 Edge） ----------
+const EDGE_CANDIDATES = process.platform === 'win32'
+  ? [
+    'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+    'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
+  ]
+  : process.platform === 'darwin'
+    ? ['/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge']
+    : ['/usr/bin/microsoft-edge', '/usr/bin/microsoft-edge-stable', '/opt/microsoft/msedge/msedge'];
+const EDGE = EDGE_CANDIDATES.find((p) => existsSync(p)) || null;
+report.info.edge = Boolean(EDGE);
+if (EDGE) OK(`系统 Edge 存在: ${EDGE}`);
+else W(`未找到系统 Edge（查过 ${EDGE_CANDIDATES.length} 个常见位置），浏览器类脚本可能失败。
+     请安装 Edge，或把脚本里的 channel:'msedge' 改成 'chrome'（装 Chrome 亦可）`);
 
 // ---------- 4. 持久化 profile（登录态 / 放行 cookie） ----------
 // ⚠️ 这是 skill **打包不了**的东西。删了就得重新登录/重新过滑块。
+// 路径由 scripts/_env.mjs 统一解析：~/.dsh/<名字>，可用 <SITE>_PROFILE 环境变量覆盖。
+// 第 4 列是「首次放行」该加的参数（只有实测存在的标志才写，不臆造）。
 const PROFILES = [
-  ['cnki', 'C:/Users/xianw/.dsh/cnki-profile', '知网：过 blockPuzzle 后的放行态'],
-  ['wf', 'C:/Users/xianw/.dsh/wf-profile', '万方：过阿里云滑块后的放行 cookie（最常失效）'],
-  ['vp', 'C:/Users/xianw/.dsh/vp-profile', '维普'],
-  ['nbs', 'C:/Users/xianw/.dsh/nbs-profile', '国家统计局'],
-  ['nmpa', 'C:/Users/xianw/.dsh/nmpa-profile', '药监局'],
-  ['zxgk', 'C:/Users/xianw/.dsh/zxgk-profile', '法院（瑞数 WAF，被污染需删掉重建）'],
-  ['std', 'C:/Users/xianw/.dsh/std-profile', '国家标准'],
-  ['nlc', 'C:/Users/xianw/.dsh/nlc-profile', '国图古籍'],
-  ['bdxs', 'C:/Users/xianw/.dsh/bdxs-profile', '百度学术'],
-  ['lawyer', 'C:/Users/xianw/.dsh/lawyer-profile', '律师诚信平台'],
-  ['unesdoc', 'C:/Users/xianw/.dsh/unesdoc-profile', 'UNESCO（需 headed 过 CF）'],
+  ['cnki', resolveProfile('cnki-profile', 'CNKI_PROFILE'), '知网：过 blockPuzzle 后的放行态', '--headed'],
+  ['wf', resolveProfile('wf-profile', 'WF_PROFILE'), '万方：过阿里云滑块后的放行 cookie（最常失效）', '--login'],
+  ['vp', resolveProfile('vp-profile', 'VP_PROFILE'), '维普', '--headed'],
+  ['nbs', resolveProfile('nbs-profile', 'NBS_PROFILE'), '国家统计局', '--headed'],
+  ['nmpa', resolveProfile('nmpa-profile', 'NMPA_PROFILE'), '药监局', ''],
+  ['zxgk', resolveProfile('zxgk-profile', 'ZXGK_PROFILE'), '法院（瑞数 WAF，被污染需删掉重建）', '--headed'],
+  ['std', resolveProfile('std-profile', 'STD_PROFILE'), '国家标准', '--headed'],
+  ['nlc', resolveProfile('nlc-profile', 'NLC_PROFILE'), '国图古籍（nlc_guji.mjs）', ''],
+  ['bdxs', resolveProfile('bdxs-profile', 'BDXS_PROFILE'), '百度学术', '--headed'],
+  ['lawyer', resolveProfile('lawyer-profile', 'LAWYER_PROFILE'), '律师诚信平台', '--headed'],
+  ['unesdoc', resolveProfile('unesdoc-profile', 'UNESDOC_PROFILE'), 'UNESCO（需 headed 过 CF）', '--headed'],
 ];
 const profileStatus = {};
-for (const [name, p, desc] of PROFILES) {
+for (const [name, p, desc, flag] of PROFILES) {
   const exists = existsSync(p);
   profileStatus[name] = exists;
   if (exists) {
@@ -98,7 +107,9 @@ for (const [name, p, desc] of PROFILES) {
     try { size = statSync(p).size; } catch { /* dir */ }
     OK(`profile ${name.padEnd(8)} 存在  (${desc})`);
   } else {
-    W(`profile ${name.padEnd(8)} 缺失 —— ${desc}；首次运行会自动创建，但可能需要人工过滑块/登录`);
+    W(`profile ${name.padEnd(8)} 缺失 —— ${desc}；首次运行会自动创建`);
+    if (flag) W(`         首次放行：任意检索命令加 ${flag}，在有头浏览器里人工过验证`);
+    else W('         该站通常 headless 直连即可，无需人工放行');
   }
 }
 report.info.profiles = profileStatus;

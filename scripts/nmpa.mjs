@@ -32,6 +32,7 @@
 // ============================================================
 
 import { createHash } from 'node:crypto';
+import { playwrightCandidates, isFsPath, resolveProfile } from './_env.mjs';
 
 const SECRET = 'nmpasecret2020';
 const BASE = 'https://datasearch.nmpa.gov.cn/datasearch/data/nmpadata/';
@@ -79,14 +80,11 @@ let _browserCtx = null;
 async function getBrowserPage() {
   if (_browserCtx) return _browserCtx.page;
   const { pathToFileURL } = await import('node:url');
-  const CANDIDATES = [
-    'C:/Users/xianw/AppData/Roaming/npm/node_modules/@playwright/mcp/node_modules/playwright-core/index.js',
-    'playwright-core',
-  ];
+  const CANDIDATES = [...playwrightCandidates(), 'playwright-core'];
   let chromium = null;
   for (const c of CANDIDATES) {
     try {
-      const m = c.startsWith('C:') ? await import(pathToFileURL(c).href) : await import(c);
+      const m = isFsPath(c) ? await import(pathToFileURL(c).href) : await import(c);
       chromium = (m.default ?? m).chromium;
       if (chromium) break;
     } catch { /* 下一个 */ }
@@ -94,7 +92,7 @@ async function getBrowserPage() {
   if (!chromium) throw new Error('找不到 playwright-core，无法回退到浏览器');
 
   const ctx = await chromium.launchPersistentContext(
-    process.env.NMPA_PROFILE || 'C:/Users/xianw/.dsh/nmpa-profile',
+    resolveProfile('nmpa-profile', 'NMPA_PROFILE'),
     {
       channel: 'msedge', headless: true, locale: 'zh-CN', userAgent: UA,
       // ⚠️⚠️ 只加这个启动参数，**绝对不要**再用 addInitScript 去改 navigator.webdriver！
